@@ -40,6 +40,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string> </string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>mmm</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>speech</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

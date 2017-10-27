@@ -9,8 +9,9 @@
 import UIKit
 import AVFoundation
 import Photos
+import Speech
 
-class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
+class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SFSpeechRecognizerDelegate {
     
     var captureSession: AVCaptureSession?
     var videoPreviewLayer: AVCaptureVideoPreviewLayer?
@@ -20,6 +21,13 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
     var movieFileOutput = AVCaptureMovieFileOutput()
     var backgroundRecordingID: UIBackgroundTaskIdentifier?
     
+    let audioEngine = AVAudioEngine()
+    let speechRecognizer: SFSpeechRecognizer? = SFSpeechRecognizer()
+    let request = SFSpeechAudioBufferRecognitionRequest()
+    var recognitionTask: SFSpeechRecognitionTask?
+    var isRecording = false
+    var node: AVAudioInputNode?
+    
     var Flabel: UILabel?
     var Fslider: UISlider?
     var Wlabel: UILabel?
@@ -27,10 +35,13 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
     var Zlabel: UILabel?
     var Zslider: UISlider?
     var RECORD_BUTTON: UIButton?
+    var speechSwich: UISwitch?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor.black
+        
+        self.recordAndRecognizeSpeech()
         
         let windowXcenter = view.bounds.midX
         let width = view.bounds.width * 0.9
@@ -140,6 +151,19 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
         //button3.addTarget(self, action: #selector(thumbsUpButtonPressed), for: .touchUpInside)
         view.addSubview(button3)
         
+        //Speech recognition
+        let speech = UILabel(frame: CGRect(x: Cx+180, y: Sy-40, width: 150, height: 20))
+        speech.textAlignment = .left
+        speech.textColor = UIColor.white
+        speech.text = "Hangvezérlés"
+        self.view.addSubview(speech)
+        
+        speechSwich = UISwitch(frame:CGRect(x: Cx+300, y: Sy-45, width: 200, height: 200))
+        speechSwich?.addTarget(self, action: #selector(speechSwichChange(_:)), for: .valueChanged)
+        speechSwich?.setOn(false, animated: true)
+        self.view.addSubview(speechSwich!)
+        
+        
         //AUTOSW
         let Alabel = UILabel(frame: CGRect(x: Cx-10, y: Sy-40, width: 100, height: 20))
         Alabel.textAlignment = .left
@@ -154,6 +178,103 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
         
         self.Fslider?.isEnabled = false
         self.Wslider?.isEnabled = false
+        
+    }
+    
+    func cancelRecording() {
+        audioEngine.stop()
+        let node = audioEngine.inputNode
+            node.removeTap(onBus: 0)
+        
+        recognitionTask?.cancel()
+    }
+    
+    func recordAndRecognizeSpeech() {
+        self.node = self.audioEngine.inputNode
+        let recordingFormat = node?.outputFormat(forBus: 0)
+        node?.installTap(onBus: 0, bufferSize: 102400, format: recordingFormat) { buffer, _ in
+            self.request.append(buffer)
+        }
+        
+        //print(count)
+        
+            self.audioEngine.prepare()
+        do {
+            try self.audioEngine.start()
+        } catch {
+            self.sendAlert(message: "There has been an audio engine error.")
+            return print(error)
+        }
+        guard let myRecognizer = SFSpeechRecognizer() else {
+            self.sendAlert(message: "Speech recognition is not supported for your current locale.")
+            return
+        }
+        if !myRecognizer.isAvailable {
+            self.sendAlert(message: "Speech recognition is not currently available. Check back at a later time.")
+            // Recognizer is not available right now
+            return
+        }
+        
+        self.recognitionTask = self.speechRecognizer?.recognitionTask(with: self.request, resultHandler: { result, error in
+            if let result = result {
+                
+                let bestString = result.bestTranscription.formattedString
+                print(bestString)
+                
+                //var helperString: String
+                var lastString: String = ""
+                for segment in result.bestTranscription.segments {
+                    let indexTo = bestString.index(bestString.startIndex, offsetBy: segment.substringRange.location)
+                    lastString = bestString.substring(from: indexTo)
+                }
+                self.checkForColorsSaid(resultString: lastString)
+            } else if let error = error {
+                //self.sendAlert(message: "There has been a speech recognition error.")
+                print("Error: \(error)")
+            }
+        })
+        
+    }
+    
+    func checkForColorsSaid(resultString: String) {
+        if(self.speechSwich?.isOn)!{        switch resultString {
+        case "start":
+            if(!self.isRecording){
+                self.recordVideo()
+                DispatchQueue.main.async {
+                    if(!self.isRecording){
+                        self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+                    }
+                }
+            }
+        case "Start":
+            if(!self.isRecording){
+                self.recordVideo()
+                
+                DispatchQueue.main.async {
+                    if(!self.isRecording){
+                        self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+                    }
+                }
+            }
+        case "stop":
+            if(self.isRecording){
+                self.recordVideo()
+                DispatchQueue.main.async {
+                    if(!self.isRecording){
+                        self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+                    }
+                }
+            }
+        default: break
+        }
+    }
+    }
+    
+    func sendAlert(message: String) {
+        let alert = UIAlertController(title: "Speech Recognizer Error", message: message, preferredStyle: UIAlertControllerStyle.alert)
+        alert.addAction(UIAlertAction(title: "OK", style: UIAlertActionStyle.default, handler: nil))
+        self.present(alert, animated: true, completion: nil)
     }
     
     @objc func takePhoto() {
@@ -167,6 +288,15 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
     
     @objc func recordVideo() {
         toggleMovieRecording()
+        DispatchQueue.main.async {
+            if(self.RECORD_BUTTON?.layer.cornerRadius == 0.5 * (self.RECORD_BUTTON?.bounds.size.width)! && !self.isRecording){
+                self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+                self.isRecording = true
+            } else {
+                self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+                self.isRecording = false
+            }
+        }
     }
     
     // MARK: Recording Movies
@@ -178,9 +308,10 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
          the Record button until recording starts or finishes.
          
          See the AVCaptureFileOutputRecordingDelegate methods.
-         */
-    self.RECORD_BUTTON?.layer.cornerRadius = 0
-        
+     */
+        /*if(self.RECORD_BUTTON?.layer.cornerRadius == 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!){
+            self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+        }*/
         /*
          Retrieve the video preview layer's video orientation on the main queue
          before entering the session queue. We do this to ensure UI elements are
@@ -294,9 +425,21 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate {
         }
         
         // Enable the Camera and Record buttons to let the user switch camera and start another recording.
-        self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+            /*if(self.RECORD_BUTTON?.layer.cornerRadius == 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!){
+                self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+
+        }*/
         DispatchQueue.main.async {
             // Only enable the ability to change camera if the device has more than one camera.
+        }
+    }
+    
+    @objc func speechSwichChange(_ sender:UISwitch!){
+        if (sender.isOn == true){
+            print("UISwitch state is now ON")
+        }
+        else{
+            print("UISwitch state is now Off")
         }
     }
     
