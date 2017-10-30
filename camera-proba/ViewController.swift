@@ -27,7 +27,7 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
     var recognitionTask: SFSpeechRecognitionTask?
     var isRecording = false
     var node: AVAudioInputNode?
-    
+    var recordingFormat: AVAudioFormat?
     var Flabel: UILabel?
     var Fslider: UISlider?
     var Wlabel: UILabel?
@@ -181,18 +181,18 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
         
     }
     
-    func cancelRecording() {
+    /*func cancelRecording() {
         audioEngine.stop()
         let node = audioEngine.inputNode
             node.removeTap(onBus: 0)
         
         recognitionTask?.cancel()
-    }
+    }*/
     
     func recordAndRecognizeSpeech() {
         self.node = self.audioEngine.inputNode
-        let recordingFormat = node?.outputFormat(forBus: 0)
-        node?.installTap(onBus: 0, bufferSize: 102400, format: recordingFormat) { buffer, _ in
+        self.recordingFormat = (node?.outputFormat(forBus: 0))!
+        node?.installTap(onBus: 0, bufferSize: 1024000, format: recordingFormat) { buffer, _ in
             self.request.append(buffer)
         }
         
@@ -237,38 +237,41 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
     }
     
     func checkForColorsSaid(resultString: String) {
-        if(self.speechSwich?.isOn)!{        switch resultString {
-        case "start":
-            if(!self.isRecording){
-                self.recordVideo()
-                DispatchQueue.main.async {
-                    if(!self.isRecording){
-                        self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+        if(self.speechSwich?.isOn)!{
+            switch resultString {
+            case "start":
+                if(!self.isRecording){
+                    self.recordVideo()
+                    
+                    DispatchQueue.main.async {
+                        if(!self.isRecording){
+                            self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+                        }
                     }
                 }
-            }
-        case "Start":
-            if(!self.isRecording){
-                self.recordVideo()
-                
-                DispatchQueue.main.async {
-                    if(!self.isRecording){
-                        self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+            case "Start":
+                if(!self.isRecording){
+                    self.recordVideo()
+                    
+                    DispatchQueue.main.async {
+                        if(!self.isRecording){
+                            self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
+                        }
                     }
                 }
-            }
-        case "stop":
-            if(self.isRecording){
-                self.recordVideo()
-                DispatchQueue.main.async {
-                    if(!self.isRecording){
-                        self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+            case "stop":
+                if(self.isRecording){
+                    self.recordVideo()
+                    
+                    DispatchQueue.main.async {
+                        if(!self.isRecording){
+                            self.RECORD_BUTTON?.layer.cornerRadius = 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!
+                        }
                     }
                 }
+            default: break
             }
-        default: break
         }
-    }
     }
     
     func sendAlert(message: String) {
@@ -309,9 +312,7 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
          
          See the AVCaptureFileOutputRecordingDelegate methods.
      */
-        /*if(self.RECORD_BUTTON?.layer.cornerRadius == 0.5 * (self.RECORD_BUTTON?.bounds.size.width)!){
-            self.RECORD_BUTTON?.layer.cornerRadius = 0.2 * (self.RECORD_BUTTON?.bounds.size.width)!
-        }*/
+    
         /*
          Retrieve the video preview layer's video orientation on the main queue
          before entering the session queue. We do this to ensure UI elements are
@@ -371,6 +372,7 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
          Note: Since we use a unique file path for each recording, a new recording will
          not overwrite a recording currently being saved.
          */
+
         func cleanUp() {
             let path = outputFileURL.path
             if FileManager.default.fileExists(atPath: path) {
@@ -383,7 +385,6 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
             
             if let currentBackgroundRecordingID = backgroundRecordingID {
                 backgroundRecordingID = UIBackgroundTaskInvalid
-                print("aaaaaaa")
                 
                 if currentBackgroundRecordingID != UIBackgroundTaskInvalid {
                     UIApplication.shared.endBackgroundTask(currentBackgroundRecordingID)
@@ -595,8 +596,25 @@ extension ViewController : AVCapturePhotoCaptureDelegate {
         }
 
         let capturedImage = UIImage.init(data: imageData , scale: 1.0)
-        if let image = capturedImage {
-            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        let filename = self.getDocumentsDirectory().appendingPathComponent("face.jpg")
+        let data = UIImageJPEGRepresentation(capturedImage!, 1.0)
+        do {
+            try data?.write(to: filename)
+        }catch{
+            print(error.localizedDescription)
         }
+        
+        /*if let image = capturedImage {
+            print(image)
+            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        }*/
+    }
+    
+    func getDocumentsDirectory() -> URL {
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let documentsDirectory = paths[0]
+        return documentsDirectory
     }
 }
+
+
