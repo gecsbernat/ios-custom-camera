@@ -45,17 +45,17 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
         
         let windowXcenter = view.bounds.midX
         let width = view.bounds.width * 0.9
-        let height = view.bounds.height
+        let height = view.bounds.height * 0.9
         let Cx = windowXcenter - (width/2)
         let Cy = height * 0.04
         
         //CAMERA UIVIEW
-        cameraView = UIView(frame: CGRect(x: Cx, y: Cy, width: width, height: width))
+        cameraView = UIView(frame: CGRect(x: Cx, y: Cy, width: width, height: height))
         cameraView?.backgroundColor = UIColor.black
         self.view.addSubview(cameraView!)
         
         captureDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .back)
-    
+        
         do {
             let input = try AVCaptureDeviceInput(device: captureDevice!)
             captureSession = AVCaptureSession()
@@ -78,7 +78,7 @@ class ViewController: UIViewController, AVCaptureFileOutputRecordingDelegate, SF
         }
         
         //SLIDER
-        let Sy = (cameraView?.bounds.midY)!+((cameraView?.bounds.height)!/2)+80
+        let Sy = ((cameraView?.bounds.midY)!)+150 //(cameraView?.bounds.midY)!+((cameraView?.bounds.height)!/2)+80
         
         //FOCUS
         Flabel = UILabel(frame: CGRect(x: Cx-10, y: Sy, width: 100, height: 20))
